@@ -30,6 +30,10 @@
         "DEV_URL": {
             "description": "Developer Telegram URL",
             "required": false
+        },
+        "LOG_CHANNEL": {
+            "description": "Log Channel ID (e.g., -100xxxx)",
+            "required": false
         }
     }
 }

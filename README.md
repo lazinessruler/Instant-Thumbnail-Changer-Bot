@@ -70,6 +70,7 @@ python main.py
 | `API_TOKEN` | Bot Token from @BotFather | ✅ |
 | `MONGO_URL` | MongoDB Connection String | ✅ |
 | `OWNER_ID` | Your Telegram User ID | ✅ |
+| `LOG_CHANNEL` | Log Channel ID (e.g., -100xxxx) | ❌ |
 | `CHANNEL_URL` | Channel URL for Join button | ❌ |
 | `DEV_URL` | Developer Telegram URL | ❌ |
 
