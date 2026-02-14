@@ -3,7 +3,6 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.exceptions import TelegramBadRequest
 from config import LOG_CHANNEL
 from database import get_thumbnail, increment_usage, is_banned, add_user
-import time
 import asyncio
 
 router = Router()
@@ -21,13 +20,9 @@ def small_caps(text: str) -> str:
             result += char
     return result
 
-def get_processing_animation() -> list:
-    """Cool processing animations."""
-    return ["🎬", "⚙️", "🔄", "✨", "🎯", "💫", "⭐", "🌟"]
-
 @router.message(F.video)
 async def handle_video(message: types.Message, bot: Bot):
-    """COOL: Handle video with style and swagger!"""
+    """CLEAN: Handle video - emoji animation only!"""
     user_id = message.from_user.id
     username = message.from_user.username
     first_name = message.from_user.first_name
@@ -36,32 +31,23 @@ async def handle_video(message: types.Message, bot: Bot):
     # Check if banned
     if await is_banned(user_id):
         await message.react(emoji="⛔")
-        await message.answer(
-            f"<b>🚫 {small_caps('Access Denied')}</b>\n\n"
-            f"<blockquote>{small_caps('You have been banned from using this bot.')}</blockquote>"
-        )
         return
     
     # Add/update user
     await add_user(user_id, username, first_name)
     
-    # Keep ORIGINAL caption
-    caption = message.caption or ""
+    # Keep EXACT original caption - NO ADDITION
+    caption = message.caption or None  # None is better for empty captions
     
     # Get user's thumbnail
     thumb_file_id = await get_thumbnail(user_id)
     
-    # Send processing message with animation
-    processing_msg = await message.answer(
-        f"<b>{small_caps('🎬 Processing Your Video')}</b>\n\n"
-        f"<blockquote>{small_caps('Please wait...')}</blockquote>\n"
-        f"<code>⚡ Applying your custom thumbnail ⚡</code>"
-    )
-    
-    # Small delay for dramatic effect
-    await asyncio.sleep(1)
-    
     if thumb_file_id:
+        # Show processing animation (1 second)
+        processing_msg = await message.answer("🎬")
+        await asyncio.sleep(1)
+        await processing_msg.delete()
+        
         try:
             # Add reaction to user's message
             await message.react(emoji="🎬")
@@ -69,28 +55,13 @@ async def handle_video(message: types.Message, bot: Bot):
             # Increment usage count
             await increment_usage(user_id)
             
-            # Prepare cool caption with emojis - FIXED: No backslash in f-string!
-            if caption:
-                final_caption = f"{caption}\n\n━━━━━━━━━━━━━━\n✨ <b>{small_caps('Powered by @xFlexyy')}</b> ✨"
-            else:
-                final_caption = f"✨ <b>{small_caps('Powered by @xFlexyy')}</b> ✨"
-            
-            # Send video with custom cover
+            # Send video with custom cover - EXACT original caption
             await bot.send_video(
                 chat_id=message.chat.id,
                 video=video.file_id,
-                caption=final_caption,
+                caption=caption,  # Pure original caption, no additions
                 cover=thumb_file_id,
-                parse_mode="HTML"
-            )
-            
-            # Delete processing message
-            await processing_msg.delete()
-            
-            # Send success reaction
-            await message.answer(
-                f"<b>✅ {small_caps('Video Processed!')}</b>\n\n"
-                f"<blockquote>{small_caps('Your custom thumbnail has been applied.')}</blockquote>"
+                parse_mode="HTML" if caption else None
             )
             
             # Log to channel
@@ -101,73 +72,51 @@ async def handle_video(message: types.Message, bot: Bot):
                         text=f"<b>🎥 ᴠɪᴅᴇᴏ ᴘʀᴏᴄᴇssᴇᴅ</b>\n\n"
                              f"<b>👤 ᴜsᴇʀ:</b> {first_name}\n"
                              f"<b>🔗 ᴜsᴇʀɴᴀᴍᴇ:</b> @{username or 'N/A'}\n"
-                             f"<b>🆔 ɪᴅ:</b> <code>{user_id}</code>\n"
-                             f"<b>📊 sɪᴢᴇ:</b> {video.file_size / (1024*1024):.2f} MB\n"
-                             f"<b>⏱️ ᴅᴜʀᴀᴛɪᴏɴ:</b> {video.duration}s\n"
-                             f"<b>📝 ᴄᴀᴘᴛɪᴏɴ:</b> {caption[:100] + '...' if len(caption) > 100 else caption or 'No caption'}",
+                             f"<b>🆔 ɪᴅ:</b> <code>{user_id}</code>",
                         parse_mode="HTML"
                     )
                 except Exception:
                     pass
                     
         except Exception as e:
-            await processing_msg.delete()
-            await message.answer(
-                f"<b>❌ {small_caps('Error Processing')}</b>\n\n"
-                f"<blockquote>{small_caps('Something went wrong. Please try again.')}</blockquote>"
-            )
+            await message.answer("❌")
             print(f"Video processing error: {e}")
     
     else:
-        # No thumbnail set - cool warning with instructions
-        await processing_msg.delete()
-        
-        # Create cool no-thumbnail keyboard
+        # No thumbnail set - simple warning with button
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🖼️ sᴇᴛ ᴛʜᴜᴍʙɴᴀɪʟ ɴᴏᴡ", callback_data="update_thumb")],
-            [InlineKeyboardButton(text="📖 ʜᴏᴡ ᴛᴏ ᴜsᴇ", url="https://t.me/xFlexyy")]
+            [InlineKeyboardButton(text="🖼️ sᴇᴛ ᴛʜᴜᴍʙɴᴀɪʟ", callback_data="update_thumb")]
         ])
         
-        # FIXED: Split the string to avoid backslash in f-string
-        simple_text = small_caps("✨ It's that simple!")
-        
         await message.answer(
-            f"<b>⚠️ {small_caps('Thumbnail Missing!')}</b>\n\n"
-            f"<blockquote>{small_caps('To add custom covers to your videos:')}</blockquote>\n\n"
-            f"1️⃣ {small_caps('Click the button below')}\n"
-            f"2️⃣ {small_caps('Send any photo')}\n"
-            f"3️⃣ {small_caps('Send video & get thumbnail!')}\n\n"
-            f"<b>{simple_text}</b>",
+            f"<b>⚠️ {small_caps('No thumbnail set!')}</b>\n\n"
+            f"<blockquote>{small_caps('Click below to set one.')}</blockquote>",
             parse_mode="HTML",
             reply_markup=keyboard
         )
 
 @router.message(F.video_note)
 async def handle_video_note(message: types.Message, bot: Bot):
-    """COOL: Handle video notes (round videos)."""
+    """Handle video notes."""
     user_id = message.from_user.id
     
     if await is_banned(user_id):
-        await message.react(emoji="⛔")
         return
     
     await message.answer(
-        f"<b>🎯 {small_caps('Video Notes Detected')}</b>\n\n"
-        f"<blockquote>{small_caps('Video notes are not supported yet.')}</blockquote>\n"
-        f"{small_caps('Send a regular video file instead!')}"
+        f"<b>🎯 {small_caps('Video notes not supported')}</b>\n\n"
+        f"{small_caps('Send regular video.')}"
     )
 
 @router.message(F.animation)
 async def handle_gif(message: types.Message, bot: Bot):
-    """COOL: Handle GIFs with style."""
+    """Handle GIFs."""
     user_id = message.from_user.id
     
     if await is_banned(user_id):
         return
     
-    await message.react(emoji="🎪")
     await message.answer(
-        f"<b>🎪 {small_caps('Nice GIF!')}</b>\n\n"
-        f"<blockquote>{small_caps('But I work with videos only.')}</blockquote>\n"
-        f"{small_caps('Send me an MP4 file!')}"
+        f"<b>🎪 {small_caps('GIFs not supported')}</b>\n\n"
+        f"{small_caps('Send MP4 video.')}"
     )
