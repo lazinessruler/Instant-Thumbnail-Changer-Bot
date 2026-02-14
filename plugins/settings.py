@@ -50,7 +50,6 @@ def get_random_start_image() -> str:
 def get_settings_keyboard(thumb_status: bool = False):
     """Premium settings keyboard with dynamic status indicator."""
     status_emoji = "✅" if thumb_status else "❌"
-    status_text = "sᴇᴛ" if thumb_status else "ɴᴏᴛ sᴇᴛ"
     
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=f"🖼️ ᴜᴘᴅᴀᴛᴇ ᴛʜᴜᴍʙɴᴀɪʟ", callback_data="update_thumb")],
@@ -86,38 +85,6 @@ def get_welcome_text() -> str:
         f"<b>{small_caps('💡 Powered by @xFlexyy')}</b>"
     )
 
-async def update_settings_message(message: types.Message, user_id: int, status_message: str = None):
-    """Update settings message with current thumbnail status."""
-    thumb = await get_thumbnail(user_id)
-    status = f"✅ {small_caps('Thumbnail is set')}" if thumb else f"❌ {small_caps('No thumbnail set')}"
-    
-    if status_message:
-        main_text = status_message
-    else:
-        main_text = (
-            f"<b>⚙️ {small_caps('Thumbnail Settings')}</b>\n\n"
-            f"<blockquote>{status}</blockquote>\n\n"
-            f"{small_caps('Choose an option below:')}"
-        )
-    
-    try:
-        if message.photo:
-            await message.edit_caption(
-                caption=main_text,
-                parse_mode="HTML",
-                reply_markup=get_settings_keyboard(bool(thumb))
-            )
-        else:
-            await message.edit_text(
-                text=main_text,
-                parse_mode="HTML",
-                reply_markup=get_settings_keyboard(bool(thumb))
-            )
-    except TelegramBadRequest:
-        pass
-    
-    return thumb
-
 @router.callback_query(F.data == "settings")
 async def show_settings(callback: CallbackQuery, bot: Bot):
     """Show premium settings menu - smooth transition."""
@@ -127,7 +94,6 @@ async def show_settings(callback: CallbackQuery, bot: Bot):
         await callback.answer(small_caps("You are banned!"), show_alert=True)
         return
     
-    # Show loading animation
     await callback.answer("⚙️ Opening settings...", show_alert=False)
     
     thumb = await get_thumbnail(user_id)
@@ -219,6 +185,11 @@ async def update_thumbnail_prompt(callback: CallbackQuery, state: FSMContext, bo
     await callback.answer("📸 Prepare your photo...", show_alert=False)
     await state.set_state(ThumbnailState.waiting_for_thumbnail)
     
+    # Store the original message ID and chat ID in state
+    await state.update_data(original_chat_id=callback.message.chat.id)
+    await state.update_data(original_message_id=callback.message.message_id)
+    await state.update_data(original_has_photo=bool(callback.message.photo))
+    
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="❌ ᴄᴀɴᴄᴇʟ", callback_data="cancel_update")]
     ])
@@ -257,57 +228,79 @@ async def cancel_update(callback: CallbackQuery, state: FSMContext, bot: Bot):
 
 @router.message(ThumbnailState.waiting_for_thumbnail, F.photo)
 async def receive_thumbnail(message: types.Message, state: FSMContext, bot: Bot):
-    """PROFESSIONAL: Save thumbnail and return to same page with live update!"""
+    """PROFESSIONAL: Save thumbnail and TRANSFORM SAME PAGE to success view!"""
     user_id = message.from_user.id
     file_id = message.photo[-1].file_id
+    
+    # Get original message details from state
+    data = await state.get_data()
+    original_chat_id = data.get('original_chat_id')
+    original_message_id = data.get('original_message_id')
+    original_has_photo = data.get('original_has_photo', False)
     
     # Save to database
     await set_thumbnail(user_id, file_id)
     await state.clear()
     
-    # Show success animation
-    success_msg = await message.answer("✅ 𝙎𝙖𝙫𝙞𝙣𝙜...")
-    await asyncio.sleep(0.5)
-    await success_msg.delete()
-    
-    # Get the original settings message (the one user came from)
-    # We need to find and update it
+    # Delete the user's photo message (cleanup)
     try:
-        # Delete the photo message (cleanup)
         await message.delete()
     except:
         pass
     
-    # Send new settings with updated status on SAME PAGE
-    thumb = await get_thumbnail(user_id)
-    
-    success_text = (
-        f"<b>✅ {small_caps('Thumbnail Updated!')}</b>\n\n"
-        f"<blockquote>{small_caps('Your new cover is ready.')}</blockquote>\n"
-        f"<blockquote>{small_caps('All videos will now use this thumbnail.')}</blockquote>"
-    )
-    
-    status = f"✅ {small_caps('Thumbnail is set')}"
-    
-    settings_text = (
-        f"<b>⚙️ {small_caps('Thumbnail Settings')}</b>\n\n"
-        f"<blockquote>{status}</blockquote>\n\n"
-        f"{small_caps('Choose an option below:')}"
-    )
-    
-    # Send confirmation on same page
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⚙️ ʙᴀᴄᴋ ᴛᴏ sᴇᴛᴛɪɴɢs", callback_data="settings")],
-        [InlineKeyboardButton(text="👁️ ᴠɪᴇᴡ ɴᴇᴡ ᴛʜᴜᴍʙɴᴀɪʟ", callback_data="view_thumb")]
-    ])
-    
-    # This keeps user on same page with updated info
-    await message.answer_photo(
-        photo=file_id,
-        caption=success_text,
-        parse_mode="HTML",
-        reply_markup=keyboard
-    )
+    # Get the original message and TRANSFORM it!
+    try:
+        # Try to get the original message
+        original_message = await bot.edit_message_reply_markup(
+            chat_id=original_chat_id,
+            message_id=original_message_id,
+            reply_markup=None
+        )
+        
+        # Now transform it to success view with new thumbnail
+        success_text = (
+            f"<b>✅ {small_caps('Thumbnail Updated!')}</b>\n\n"
+            f"<blockquote>{small_caps('Your new cover is ready.')}</blockquote>\n"
+            f"<blockquote>{small_caps('All videos will now use this thumbnail.')}</blockquote>"
+        )
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="⚙️ ʙᴀᴄᴋ ᴛᴏ sᴇᴛᴛɪɴɢs", callback_data="settings"),
+                InlineKeyboardButton(text="👁️ ᴠɪᴇᴡ ᴛʜᴜᴍʙɴᴀɪʟ", callback_data="view_thumb")
+            ]
+        ])
+        
+        # Edit the original message to show the new thumbnail with success message
+        await bot.edit_message_media(
+            chat_id=original_chat_id,
+            message_id=original_message_id,
+            media=types.InputMediaPhoto(
+                media=file_id,
+                caption=success_text,
+                parse_mode="HTML"
+            ),
+            reply_markup=keyboard
+        )
+        
+    except Exception as e:
+        print(f"Error transforming message: {e}")
+        # Fallback: send new message
+        success_text = (
+            f"<b>✅ {small_caps('Thumbnail Updated!')}</b>\n\n"
+            f"<blockquote>{small_caps('Your new cover is ready.')}</blockquote>"
+        )
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="⚙️ ʙᴀᴄᴋ ᴛᴏ sᴇᴛᴛɪɴɢs", callback_data="settings")]
+        ])
+        
+        await message.answer_photo(
+            photo=file_id,
+            caption=success_text,
+            parse_mode="HTML",
+            reply_markup=keyboard
+        )
 
 @router.callback_query(F.data == "view_thumb")
 async def view_thumbnail(callback: CallbackQuery, bot: Bot):
@@ -329,14 +322,26 @@ async def view_thumbnail(callback: CallbackQuery, bot: Bot):
         
         # Show thumbnail with premium UI
         try:
-            await callback.message.delete()
-            await bot.send_photo(
-                chat_id=callback.message.chat.id,
-                photo=thumb,
-                caption=f"<b>🖼️ {small_caps('Your Current Thumbnail')}</b>\n\n<blockquote>{small_caps('This cover will appear on all your videos.')}</blockquote>",
-                parse_mode="HTML",
-                reply_markup=keyboard
-            )
+            if callback.message.photo:
+                # If current message has photo, edit it
+                await callback.message.edit_media(
+                    media=types.InputMediaPhoto(
+                        media=thumb,
+                        caption=f"<b>🖼️ {small_caps('Your Current Thumbnail')}</b>\n\n<blockquote>{small_caps('This cover will appear on all your videos.')}</blockquote>",
+                        parse_mode="HTML"
+                    ),
+                    reply_markup=keyboard
+                )
+            else:
+                # If text message, delete and send new
+                await callback.message.delete()
+                await bot.send_photo(
+                    chat_id=callback.message.chat.id,
+                    photo=thumb,
+                    caption=f"<b>🖼️ {small_caps('Your Current Thumbnail')}</b>\n\n<blockquote>{small_caps('This cover will appear on all your videos.')}</blockquote>",
+                    parse_mode="HTML",
+                    reply_markup=keyboard
+                )
         except:
             pass
     else:
