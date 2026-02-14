@@ -69,8 +69,11 @@ async def handle_video(message: types.Message, bot: Bot):
             # Increment usage count
             await increment_usage(user_id)
             
-            # Prepare cool caption with emojis
-            final_caption = f"{caption}\n\n━━━━━━━━━━━━━━\n✨ <b>{small_caps('Powered by @xFlexyy')}</b> ✨" if caption else f"✨ <b>{small_caps('Powered by @xFlexyy')}</b> ✨"
+            # Prepare cool caption with emojis - FIXED: No backslash in f-string!
+            if caption:
+                final_caption = f"{caption}\n\n━━━━━━━━━━━━━━\n✨ <b>{small_caps('Powered by @xFlexyy')}</b> ✨"
+            else:
+                final_caption = f"✨ <b>{small_caps('Powered by @xFlexyy')}</b> ✨"
             
             # Send video with custom cover
             await bot.send_video(
@@ -125,13 +128,16 @@ async def handle_video(message: types.Message, bot: Bot):
             [InlineKeyboardButton(text="📖 ʜᴏᴡ ᴛᴏ ᴜsᴇ", url="https://t.me/xFlexyy")]
         ])
         
+        # FIXED: Split the string to avoid backslash in f-string
+        simple_text = small_caps("✨ It's that simple!")
+        
         await message.answer(
             f"<b>⚠️ {small_caps('Thumbnail Missing!')}</b>\n\n"
             f"<blockquote>{small_caps('To add custom covers to your videos:')}</blockquote>\n\n"
             f"1️⃣ {small_caps('Click the button below')}\n"
             f"2️⃣ {small_caps('Send any photo')}\n"
             f"3️⃣ {small_caps('Send video & get thumbnail!')}\n\n"
-            f"<b>{small_caps('✨ It\'s that simple!')}</b>",
+            f"<b>{simple_text}</b>",
             parse_mode="HTML",
             reply_markup=keyboard
         )
