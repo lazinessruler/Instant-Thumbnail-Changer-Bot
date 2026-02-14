@@ -1,10 +1,9 @@
 from aiogram import Router, types, Bot
 from aiogram.filters import Command
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, URLInputFile
 from config import CHANNEL_URL, DEV_URL, LOG_CHANNEL
 from database import add_user, is_banned, get_user
-import aiohttp
-import os
+import random
 
 router = Router()
 
@@ -21,9 +20,30 @@ def small_caps(text: str) -> str:
             result += char
     return result
 
+# Aapke diye gaye sabhi photos ki list
+START_IMAGES = [
+    "https://i.postimg.cc/JnY5fHyX/026736497b6d047c910a0da13bd23e7b.jpg",
+    "https://i.postimg.cc/rmZNBRdt/23c874004ccca79fdd3fbcb260a80829.jpg",
+    "https://i.postimg.cc/LXQ3cgqY/2412165f7ca24a6422b4bdb96d169e98.jpg",
+    "https://i.postimg.cc/xCp3wNkx/3511407df15923bbc85720e712cec44e.jpg",
+    "https://i.postimg.cc/DZpP94WP/45b4da77420ccfff9ab8196944c8cf26.jpg",
+    "https://i.postimg.cc/gJtHCLwV/57e045c8b5bba2adfa522f15d6bd9094.jpg",
+    "https://i.postimg.cc/hjt0Z1GV/72702cbdbf3bf0ceeac3ef6d7f0c118b.jpg",
+    "https://i.postimg.cc/zB2FsHLk/7926a8d03b5c9094761a7ca17202e356.jpg",
+    "https://i.postimg.cc/85Xm2fFY/82c3c50baee7980a9ae08c017bb669e6.jpg",
+    "https://i.postimg.cc/85Xm2fFB/b16da8b99a83d33ad649c48210b4f42d.jpg",
+    "https://i.postimg.cc/vB2tJx13/ba221a265c809c0ce3f3a83a2735d2bc.jpg",
+    "https://i.postimg.cc/fLqfGS39/dbffd4c10a7db8b310f760bc4f5d5427.jpg",
+    "https://i.postimg.cc/xCp3wNk6/e8b74238880bd9d67ec728cff79415e0.jpg"
+]
+
+def get_random_start_image() -> str:
+    """Return a random image URL from the list."""
+    return random.choice(START_IMAGES)
+
 @router.message(Command("start"))
 async def start_cmd(message: types.Message, bot: Bot):
-    """Handle /start command with video and buttons."""
+    """Handle /start command with random image and buttons."""
     user_id = message.from_user.id
     username = message.from_user.username
     first_name = message.from_user.first_name
@@ -76,43 +96,22 @@ async def start_cmd(message: types.Message, bot: Bot):
         [InlineKeyboardButton(text="⚙️ sᴇᴛᴛɪɴɢs ", callback_data="settings")]
     ])
     
-    # Video link
-    video_url = "https://files.catbox.moe/yiyzkx.mp4"
-    video_path = "start_video.mp4"
+    # Get random image from the list
+    image_url = get_random_start_image()
     
-    # Download video if not exists
-    if not os.path.exists(video_path):
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(video_url) as resp:
-                    if resp.status == 200:
-                        with open(video_path, 'wb') as f:
-                            f.write(await resp.read())
-        except Exception as e:
-            print(f"Failed to download video: {e}")
-    
-    # Send video with caption
+    # Send image with caption
     try:
-        if os.path.exists(video_path):
-            video = FSInputFile(video_path)
-            await bot.send_video(
-                chat_id=message.chat.id,
-                video=video,
-                caption=welcome_text,
-                parse_mode="HTML",
-                reply_markup=keyboard,
-                supports_streaming=True
-            )
-        else:
-            # Fallback if video file is missing
-            await message.answer(
-                welcome_text,
-                parse_mode="HTML",
-                reply_markup=keyboard
-            )
+        photo = URLInputFile(image_url)
+        await bot.send_photo(
+            chat_id=message.chat.id,
+            photo=photo,
+            caption=welcome_text,
+            parse_mode="HTML",
+            reply_markup=keyboard
+        )
     except Exception as e:
-        print(f"Error sending video: {e}")
-        # Final fallback
+        print(f"Error sending image: {e}")
+        # Fallback if image fails
         await message.answer(
             welcome_text,
             parse_mode="HTML",
