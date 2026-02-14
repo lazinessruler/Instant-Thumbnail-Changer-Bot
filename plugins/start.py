@@ -84,17 +84,28 @@ async def start_cmd(message: types.Message, bot: Bot):
         f"2️⃣ {small_caps('Send any video file')}\n"
         f"3️⃣ {small_caps('Get your video with the custom thumbnail!')}\n"
         f"</blockquote>\n"
-        f"<b>{small_caps('💡 Powered by @xFlexyy')}</b>"
+        f"<b>{small_caps('💡 Powered by lowkey villains')}</b>"
     )
     
     # Buttons
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
+            InlineKeyboardButton(text="ᴡ", callback_data="none1"),
+            InlineKeyboardButton(text="ᴇ", callback_data="none2"),
+            InlineKeyboardButton(text="ʟ", callback_data="none3"),
+            InlineKeyboardButton(text="ᴄ", callback_data="none4"),
+            InlineKeyboardButton(text="ᴏ", callback_data="none5"),
+            InlineKeyboardButton(text="ᴍ", callback_data="none6"),
+            InlineKeyboardButton(text="ᴇ", callback_data="none7"),
+        ],
+        [
             InlineKeyboardButton(text="• sᴜᴘᴘᴏʀᴛ •", url=CHANNEL_URL),
             InlineKeyboardButton(text="• ᴅᴇᴠᴇʟᴏᴘᴇʀ •", url=DEV_URL)
         ],
-        [InlineKeyboardButton(text="⚙️ sᴇᴛᴛɪɴɢs ", callback_data="settings")]
-    ])
+        [
+            InlineKeyboardButton(text="⚙️ sᴇᴛᴛɪɴɢs", callback_data="settings")
+        ]
+])
     
     # Get random image from the list
     image_url = get_random_start_image()
