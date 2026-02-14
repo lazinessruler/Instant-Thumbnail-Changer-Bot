@@ -1,294 +1,169 @@
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat
+# Developer: Flexyy Joren
+# Telegram: @xFlexyy
+
 from aiogram import Router, types, F, Bot
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.exceptions import TelegramBadRequest
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat
+
 from config import CHANNEL_URL, DEV_URL
 from database import get_thumbnail, set_thumbnail, remove_thumbnail, is_banned
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat
+
 router = Router()
 
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat
-def small_caps(text: str) -> str:
-    """Convert text to small caps unicode."""
-    normal = "abcdefghijklmnopqrstuvwxyz"
-    small = "ᴀʙᴄᴅᴇғɢʜɪᴊᴋʟᴍɴᴏᴘǫʀsᴛᴜᴠᴡxʏᴢ"
-    result = ""
-    for char in text:
-        if char.lower() in normal:
-            idx = normal.index(char.lower())
-            result += small[idx]
-        else:
-            result += char
-    return result
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat
 
+# --------- Serif Font (No Bold) ----------
+def serif(text: str) -> str:
+    normal = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+    styled = "𝐴𝐵𝐶𝐷𝐸𝐹𝐺𝐻𝐼𝐽𝐾𝐿𝑀𝑁𝑂𝑃𝑄𝑅𝑆𝑇𝑈𝑉𝑊𝑋𝑌𝑍𝑎𝑏𝑐𝑑𝑒𝑓𝑔𝒉𝑖𝑗𝑘𝑙𝑚𝑛𝑜𝑝𝑞𝑟𝑠𝑡𝑢𝑣𝑤𝑥𝑦𝑧"
+    return "".join(styled[normal.index(c)] if c in normal else c for c in text)
+
+
+# --------- State ----------
 class ThumbnailState(StatesGroup):
     waiting_for_thumbnail = State()
 
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat
-def get_settings_keyboard():
-    """Return the settings inline keyboard."""
+
+# --------- Keyboards ----------
+def start_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🖼️ Update Thumbnail", callback_data="update_thumb")],
-        [InlineKeyboardButton(text="👁️ View Thumbnail", callback_data="view_thumb")],
-        [InlineKeyboardButton(text="🗑️ Remove Thumbnail", callback_data="remove_thumb")],
-        [InlineKeyboardButton(text="🔙 Back", callback_data="back_to_start")],
-        [InlineKeyboardButton(text="❌ Close", callback_data="close_settings")]
+        [
+            InlineKeyboardButton(text=serif("📢 Join Channel"), url=CHANNEL_URL),
+            InlineKeyboardButton(text=serif("👨‍💻 Developer"), url=DEV_URL)
+        ],
+        [InlineKeyboardButton(text=serif("⚙️ Settings"), callback_data="settings")]
     ])
 
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat
+
+def settings_keyboard():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=serif("🖼️ Update Thumbnail"), callback_data="update_thumb")],
+        [InlineKeyboardButton(text=serif("👁️ View Thumbnail"), callback_data="view_thumb")],
+        [InlineKeyboardButton(text=serif("🗑️ Remove Thumbnail"), callback_data="remove_thumb")],
+        [InlineKeyboardButton(text=serif("🔙 Back"), callback_data="back_to_start")],
+        [InlineKeyboardButton(text=serif("❌ Close"), callback_data="close_settings")]
+    ])
+
+
+# --------- SETTINGS OPEN (EDIT MESSAGE) ----------
 @router.callback_query(F.data == "settings")
-async def show_settings(callback: CallbackQuery, bot: Bot):
-    """Show settings menu - fast text only."""
+async def show_settings(callback: CallbackQuery):
     user_id = callback.from_user.id
-    
+
     if await is_banned(user_id):
-        await callback.answer(small_caps("You are banned!"), show_alert=True)
+        await callback.answer(serif("You are banned!"), show_alert=True)
         return
-    
+
     thumb = await get_thumbnail(user_id)
-    status = f"✅ {small_caps('Thumbnail is set')}" if thumb else f"❌ {small_caps('No thumbnail set')}"
-    
+    status = f"✅ {serif('Thumbnail is set')}" if thumb else f"❌ {serif('No thumbnail set')}"
+
     text = (
-        f"<b>⚙️ {small_caps('Thumbnail Settings')}</b>\n\n"
+        f"{serif('Thumbnail Settings')}\n\n"
         f"<blockquote>{status}</blockquote>\n\n"
-        f"{small_caps('Choose an option below:')}"
+        f"{serif('Choose an option below:')}"
     )
-    
-    # Delete old message and send new one (fast, no image)
-    try:
-        await callback.message.delete()
-    except TelegramBadRequest:
-        pass
-    
-    await bot.send_message(
-        chat_id=callback.message.chat.id,
+
+    await callback.message.edit_text(
         text=text,
         parse_mode="HTML",
-        reply_markup=get_settings_keyboard()
+        reply_markup=settings_keyboard()
     )
     await callback.answer()
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat
 
+
+# --------- BACK TO START (EDIT SAME MESSAGE) ----------
 @router.callback_query(F.data == "back_to_start")
-async def back_to_start(callback: CallbackQuery, bot: Bot):
-    """Go back to start message - fast text only."""
-    
-    welcome_text = (
-        f"<b>{small_caps('Welcome to Thumbnail Bot!')}</b>\n\n"
-        f"<blockquote>{small_caps('Send me a video and I will add your custom thumbnail to it.')}</blockquote>\n\n"
-        f"<b>{small_caps('How to use:')}</b>\n"
+async def back_to_start(callback: CallbackQuery):
+
+    text = (
+        f"{serif('Welcome to Thumbnail Bot!')}\n\n"
+        f"<blockquote>{serif('Send me a video and I will add your custom thumbnail to it.')}</blockquote>\n\n"
+        f"{serif('How to use:')}\n"
         f"<blockquote>"
-        f"1️ {small_caps('Set your thumbnail in Settings')}\n"
-        f"2️ {small_caps('Send any video')}\n"
-        f"3️ {small_caps('Get video with your thumbnail!')}"
+        f"1️⃣ {serif('Set your thumbnail in Settings')}\n"
+        f"2️⃣ {serif('Send any video')}\n"
+        f"3️⃣ {serif('Get video with your thumbnail!')}"
         f"</blockquote>"
     )
-    
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="📢 Join Channel", url=CHANNEL_URL),
-            InlineKeyboardButton(text="👨‍💻 Developer", url=DEV_URL)
-        ],
-        [InlineKeyboardButton(text="⚙️ Settings", callback_data="settings")]
-    ])
-    
-    try:
-        await callback.message.delete()
-    except TelegramBadRequest:
-        pass
-    
-    await bot.send_message(
-        chat_id=callback.message.chat.id,
-        text=welcome_text,
+
+    await callback.message.edit_text(
+        text=text,
         parse_mode="HTML",
-        reply_markup=keyboard
+        reply_markup=start_keyboard()
     )
     await callback.answer()
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat
 
+
+# --------- UPDATE THUMB ----------
 @router.callback_query(F.data == "update_thumb")
-async def update_thumbnail_prompt(callback: CallbackQuery, state: FSMContext, bot: Bot):
-    """Prompt user to send a new thumbnail."""
-    user_id = callback.from_user.id
-    
-    if await is_banned(user_id):
-        await callback.answer(small_caps("You are banned!"), show_alert=True)
-        return
-    
+async def update_thumb(callback: CallbackQuery, state: FSMContext):
+
     await state.set_state(ThumbnailState.waiting_for_thumbnail)
-    
+
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="❌ Cancel", callback_data="cancel_update")]
+        [InlineKeyboardButton(text=serif("❌ Cancel"), callback_data="settings")]
     ])
-    
+
     text = (
-        f"<b>📸 {small_caps('Send me a photo')}</b>\n\n"
-        f"<blockquote>{small_caps('This image will be used as the cover for your videos.')}</blockquote>"
+        f"{serif('Send me a photo')}\n\n"
+        f"<blockquote>{serif('This image will be used as your video cover.')}</blockquote>"
     )
-    
-    try:
-        await callback.message.delete()
-    except TelegramBadRequest:
-        pass
-    
-    await bot.send_message(
-        chat_id=callback.message.chat.id,
+
+    await callback.message.edit_text(
         text=text,
         parse_mode="HTML",
         reply_markup=keyboard
     )
     await callback.answer()
 
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat
-@router.callback_query(F.data == "cancel_update")
-async def cancel_update(callback: CallbackQuery, state: FSMContext, bot: Bot):
-    """Cancel the thumbnail update."""
-    await state.clear()
-    await show_settings(callback, bot)
 
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat
+# --------- RECEIVE THUMB ----------
 @router.message(ThumbnailState.waiting_for_thumbnail, F.photo)
-async def receive_thumbnail(message: types.Message, state: FSMContext):
-    """Save the received photo as thumbnail."""
+async def receive_thumb(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     file_id = message.photo[-1].file_id
-    
+
     await set_thumbnail(user_id, file_id)
     await state.clear()
-    
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⚙️ Back to Settings", callback_data="settings")]
-    ])
-    
+
     await message.answer(
-        f"<b>✅ {small_caps('Thumbnail saved!')}</b>\n\n"
-        f"<blockquote>{small_caps('Your videos will now use this cover image.')}</blockquote>",
-        parse_mode="HTML",
-        reply_markup=keyboard
+        f"✅ {serif('Thumbnail Saved Successfully!')}",
+        reply_markup=settings_keyboard()
     )
 
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat
+
+# --------- VIEW THUMB ----------
 @router.callback_query(F.data == "view_thumb")
-async def view_thumbnail(callback: CallbackQuery, bot: Bot):
-    """Show the user's current thumbnail."""
+async def view_thumb(callback: CallbackQuery, bot: Bot):
     user_id = callback.from_user.id
     thumb = await get_thumbnail(user_id)
-    
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⚙️ Back to Settings", callback_data="settings")]
-    ])
-    
-    try:
-        await callback.message.delete()
-    except TelegramBadRequest:
-        pass
-    
+
     if thumb:
         await bot.send_photo(
             chat_id=callback.message.chat.id,
             photo=thumb,
-            caption=f"<b>🖼️ {small_caps('Your Current Thumbnail')}</b>",
-            parse_mode="HTML",
-            reply_markup=keyboard
+            caption=serif("Your Current Thumbnail"),
+            reply_markup=settings_keyboard()
         )
     else:
-        await bot.send_message(
-            chat_id=callback.message.chat.id,
-            text=f"<b>❌ {small_caps('No thumbnail set')}</b>\n\n"
-                 f"<blockquote>{small_caps('Use Update Thumbnail to set one.')}</blockquote>",
-            parse_mode="HTML",
-            reply_markup=keyboard
-        )
-    await callback.answer()
+        await callback.answer(serif("No Thumbnail Set"), show_alert=True)
 
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat
+
+# --------- REMOVE THUMB ----------
 @router.callback_query(F.data == "remove_thumb")
-async def remove_thumbnail_handler(callback: CallbackQuery, bot: Bot):
-    """Remove the user's thumbnail."""
+async def remove_thumb(callback: CallbackQuery):
     user_id = callback.from_user.id
-    removed = await remove_thumbnail(user_id)
-    
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⚙️ Back to Settings", callback_data="settings")]
-    ])
-    
-    if removed:
-        text = (
-            f"<b>🗑️ {small_caps('Thumbnail Removed')}</b>\n\n"
-            f"<blockquote>{small_caps('Your videos will now be sent without a custom cover.')}</blockquote>"
-        )
-    else:
-        text = (
-            f"<b>❌ {small_caps('No thumbnail to remove')}</b>\n\n"
-            f"<blockquote>{small_caps('You have not set a thumbnail yet.')}</blockquote>"
-        )
-    
-    try:
-        await callback.message.delete()
-    except TelegramBadRequest:
-        pass
-    
-    await bot.send_message(
-        chat_id=callback.message.chat.id,
-        text=text,
-        parse_mode="HTML",
-        reply_markup=keyboard
+    await remove_thumbnail(user_id)
+
+    await callback.message.edit_text(
+        text=f"🗑️ {serif('Thumbnail Removed Successfully')}",
+        reply_markup=settings_keyboard()
     )
     await callback.answer()
 
 
+# --------- CLOSE ----------
 @router.callback_query(F.data == "close_settings")
 async def close_settings(callback: CallbackQuery):
-    """Close the settings menu."""
-    try:
-        await callback.message.delete()
-    except TelegramBadRequest:
-        pass
-    await callback.answer(small_caps("Settings closed"))
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat
+    await callback.message.delete()
+    await callback.answer()
