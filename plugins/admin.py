@@ -1,7 +1,3 @@
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat
 from aiogram import Router, types, Bot
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -13,18 +9,10 @@ from database import (
     ban_user, unban_user, get_all_users, get_user_count,
     get_leaderboard, get_user
 )
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat
+
 router = Router()
 
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat
 def small_caps(text: str) -> str:
-    """Convert text to small caps unicode."""
     normal = "abcdefghijklmnopqrstuvwxyz"
     small = "ᴀʙᴄᴅᴇғɢʜɪᴊᴋʟᴍɴᴏᴘǫʀsᴛᴜᴠᴡxʏᴢ"
     result = ""
@@ -35,36 +23,18 @@ def small_caps(text: str) -> str:
         else:
             result += char
     return result
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat
 
 class BroadcastState(StatesGroup):
     waiting_for_message = State()
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat
-
-# ==================== ADMIN CHECK ====================
 
 async def check_admin(message: types.Message) -> bool:
-    """Check if user is admin and send error if not."""
     if not await is_admin(message.from_user.id):
         await message.answer(f"⛔ {small_caps('Admin only command.')}")
         return False
     return True
 
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat
-# ==================== USERS COMMAND ====================
-
 @router.message(Command("users"))
 async def users_cmd(message: types.Message):
-    """Show total user count."""
     if not await check_admin(message):
         return
     
@@ -75,18 +45,8 @@ async def users_cmd(message: types.Message):
         parse_mode="HTML"
     )
 
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat
-# ==================== ADD/REMOVE ADMIN ====================
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat
 @router.message(Command("add_admin"))
 async def add_admin_cmd(message: types.Message):
-    """Add a new admin."""
     if message.from_user.id != OWNER_ID:
         await message.answer(f"⛔ {small_caps('Owner only command.')}")
         return
@@ -104,14 +64,9 @@ async def add_admin_cmd(message: types.Message):
     
     await add_admin(user_id)
     await message.answer(f"✅ {small_caps('Admin added:')} <code>{user_id}</code>", parse_mode="HTML")
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat
 
 @router.message(Command("remove_admin"))
 async def remove_admin_cmd(message: types.Message):
-    """Remove an admin."""
     if message.from_user.id != OWNER_ID:
         await message.answer(f"⛔ {small_caps('Owner only command.')}")
         return
@@ -136,16 +91,9 @@ async def remove_admin_cmd(message: types.Message):
         await message.answer(f"✅ {small_caps('Admin removed:')} <code>{user_id}</code>", parse_mode="HTML")
     else:
         await message.answer(f"❌ {small_caps('User was not an admin.')}")
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat
-
-# ==================== BAN/UNBAN ====================
 
 @router.message(Command("ban"))
 async def ban_cmd(message: types.Message):
-    """Ban a user."""
     if not await check_admin(message):
         return
     
@@ -174,13 +122,8 @@ async def ban_cmd(message: types.Message):
     else:
         await message.answer(f"❌ {small_caps('User not found.')}")
 
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat
 @router.message(Command("unban"))
 async def unban_cmd(message: types.Message):
-    """Unban a user."""
     if not await check_admin(message):
         return
     
@@ -201,15 +144,8 @@ async def unban_cmd(message: types.Message):
     else:
         await message.answer(f"❌ {small_caps('User not found or not banned.')}")
 
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat
-# ==================== LEADERBOARD ====================
-
 @router.message(Command("topleaderboard"))
 async def leaderboard_cmd(message: types.Message):
-    """Show top users by usage."""
     if not await check_admin(message):
         return
     
@@ -231,15 +167,8 @@ async def leaderboard_cmd(message: types.Message):
     
     await message.answer(text, parse_mode="HTML")
 
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat
-# ==================== BROADCAST ====================
-
 @router.message(Command("broadcast"))
 async def broadcast_cmd(message: types.Message, state: FSMContext):
-    """Start broadcast."""
     if not await check_admin(message):
         return
     
@@ -250,25 +179,15 @@ async def broadcast_cmd(message: types.Message, state: FSMContext):
         parse_mode="HTML"
     )
 
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat
 @router.message(Command("cancel"))
 async def cancel_broadcast(message: types.Message, state: FSMContext):
-    """Cancel broadcast."""
     current_state = await state.get_state()
     if current_state:
         await state.clear()
         await message.answer(f"❌ {small_caps('Cancelled.')}")
 
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat
 @router.message(BroadcastState.waiting_for_message)
 async def do_broadcast(message: types.Message, state: FSMContext, bot: Bot):
-    """Perform the broadcast."""
     await state.clear()
     
     users = await get_all_users()
@@ -289,7 +208,6 @@ async def do_broadcast(message: types.Message, state: FSMContext, bot: Bot):
         except Exception:
             failed += 1
         
-        # Update status every 10 users
         if (i + 1) % 10 == 0:
             try:
                 await status_msg.edit_text(
@@ -303,7 +221,3 @@ async def do_broadcast(message: types.Message, state: FSMContext, bot: Bot):
         f"📨 {small_caps('Sent:')} {success}\n"
         f"❌ {small_caps('Failed:')} {failed}"
     )
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat

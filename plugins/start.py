@@ -8,7 +8,6 @@ import random
 router = Router()
 
 def small_caps(text: str) -> str:
-    """Convert text to small caps unicode."""
     normal = "abcdefghijklmnopqrstuvwxyz"
     small = "ᴀʙᴄᴅᴇғɢʜɪᴊᴋʟᴍɴᴏᴘǫʀsᴛᴜᴠᴡxʏᴢ"
     result = ""
@@ -20,7 +19,6 @@ def small_caps(text: str) -> str:
             result += char
     return result
 
-# Aapke diye gaye sabhi photos ki list
 START_IMAGES = [
     "https://i.postimg.cc/JnY5fHyX/026736497b6d047c910a0da13bd23e7b.jpg",
     "https://i.postimg.cc/rmZNBRdt/23c874004ccca79fdd3fbcb260a80829.jpg",
@@ -38,29 +36,23 @@ START_IMAGES = [
 ]
 
 def get_random_start_image() -> str:
-    """Return a random image URL from the list."""
     return random.choice(START_IMAGES)
 
 @router.message(Command("start"))
 async def start_cmd(message: types.Message, bot: Bot):
-    """Handle /start command with random image and buttons."""
     user_id = message.from_user.id
     username = message.from_user.username
     first_name = message.from_user.first_name
     
-    # Check if banned
     if await is_banned(user_id):
         await message.answer(small_caps("You are banned from using this bot."))
         return
     
-    # Check if new user
     existing_user = await get_user(user_id)
     is_new_user = existing_user is None
     
-    # Add/update user in database
     await add_user(user_id, username, first_name)
     
-    # Log new user to log channel
     if is_new_user and LOG_CHANNEL:
         try:
             await bot.send_message(
@@ -74,20 +66,16 @@ async def start_cmd(message: types.Message, bot: Bot):
         except Exception:
             pass
     
-    # Enhanced Welcome text in small caps with blockquote and emojis
     welcome_text = (
         f"<b>{small_caps('✨ Welcome to Thumbnail Bot! ✨')}</b>\n\n"
         f"<blockquote>{small_caps('Transform your videos with custom thumbnails effortlessly!')}</blockquote>\n\n"
         f"<b>{small_caps('📌 Quick Guide:')}</b>\n"
-        f"<blockquote>"
         f"1️⃣ {small_caps('Set your thumbnail in Settings')}\n"
         f"2️⃣ {small_caps('Send any video file')}\n"
-        f"3️⃣ {small_caps('Get your video with the custom thumbnail!')}\n"
-        f"</blockquote>\n"
-        f"<b>{small_caps('💡 Powered by lowkey villains')}</b>"
+        f"3️⃣ {small_caps('Get your video with the custom thumbnail!')}\n\n"
+        f"<b>{small_caps('💡 Powered by dByte Network')}</b>"
     )
     
-    # Buttons
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text="ᴡ", callback_data="none1"),
@@ -107,10 +95,8 @@ async def start_cmd(message: types.Message, bot: Bot):
         ]
 ])
     
-    # Get random image from the list
     image_url = get_random_start_image()
     
-    # Send image with caption
     try:
         photo = URLInputFile(image_url)
         await bot.send_photo(
@@ -122,7 +108,6 @@ async def start_cmd(message: types.Message, bot: Bot):
         )
     except Exception as e:
         print(f"Error sending image: {e}")
-        # Fallback if image fails
         await message.answer(
             welcome_text,
             parse_mode="HTML",
