@@ -1,97 +1,69 @@
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat
+# Thumbnail Changer Bot !!
+# Made By Flexyy Team dByte !!
+# Telegram Username:- @xFlexyy
+# Community:- @DragonByte_Network
+
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 import asyncio
 from flask import Flask
 import threading
 import os
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat
 from config import API_TOKEN
-from database import init_db, close_db
+from database import init_db, close_db, set_bot_start_time
 from plugins import start_router, settings_router, video_router, admin_router
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat
-# Initialize bot and dispatcher
+from uptime import router as uptime_router, start_ping_task
+import datetime
+
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschats
+
 # Register routers
 dp.include_router(start_router)
 dp.include_router(settings_router)
 dp.include_router(video_router)
 dp.include_router(admin_router)
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat
-# Flask health check server
+dp.include_router(uptime_router)
+
 app = Flask(__name__)
 
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat
 @app.route("/")
 def home():
-    return "Bot Made By @CantarellaBots"
+    return "Thumbnail Changer Bot !! - Made By Flexyy Team dByte !! | Community @DragonByte_Network"
 
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat
 def run_flask():
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
 
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschats
 async def main():
-    # Initialize database
     await init_db()
-    print("🚀 Bot is starting...")
+    
+    # Save bot start time
+    await set_bot_start_time(datetime.datetime.now())
+    
+    # Start ping task
+    await start_ping_task()
+    
+    print(" Bot is starting with Uptime Monitor...")
     
     try:
         await dp.start_polling(bot)
     finally:
         await close_db()
 
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat
 if __name__ == "__main__":
-    print(r"""
-   ______            __                  __  __        ____        __       
-  / ____/___ _____  / /_____ _________  / / / /___ _  / __ )____  / /______ 
- / /   / __ `/ __ \/ __/ __ `/ ___/ _ \/ / / / __ `/ / __  / __ \/ __/ ___/ 
-/ /___/ /_/ / / / / /_/ /_/ / /  /  __/ / / / /_/ / / /_/ / /_/ / /_(__  )  
-\____/\__,_/_/ /_/\__/\__,_/_/   \___/_/_/_/\__,_/ /_____/\____/\__/____/   
-                                                                            
-      BOT WORKING PROPERLY....
+    print("""
+     
+ 
+            
+              
+            
+              
+                                        
+          THUMBNAIL CHANGER BOT WORKING PROPERLY....
+          WITH UPTIME MONITOR & MULTIPLE URL SUPPORT
+          Made By Flexyy Team dByte !! | @xFlexyy | Community @DragonByte_Network
     """)
     print("Starting Bot...")
     threading.Thread(target=run_flask, daemon=True).start()
     asyncio.run(main())
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat

@@ -8,7 +8,3 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 CMD ["python", "main.py"]
-# CantarellaBots
-# Don't Remove Credit
-# Telegram Channel @CantarellaBots
-#Supoort group @rexbotschat

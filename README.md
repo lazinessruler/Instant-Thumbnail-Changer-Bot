@@ -1,85 +1,110 @@
-# Video Thumbnail Bot
+# 🎬 Video Thumbnail Bot
 
 <p align="center">
-    <b>A powerful Telegram bot to add custom thumbnails to your videos instantly.</b>
-    <br>
-    <a href="https://t.me/cantarellabots">
-        <img src="https://img.shields.io/badge/Channel-CantarellaBots-blue?style=flat-square&logo=telegram" alt="Channel">
+    <b>A powerful and advanced Telegram bot to add custom thumbnails to your videos instantly.</b>
+    <br><br>
+    <a href="https://t.me/DragonByte_Network">
+        <img src="https://img.shields.io/badge/Community-DragonByte__Network-blue?style=flat-square&logo=telegram" alt="Community">
     </a>
-    <a href="https://t.me/cantarella_wuwa">
-        <img src="https://img.shields.io/badge/Developer-cantarella__wuwa-blue?style=flat-square&logo=telegram" alt="Developer">
+    <a href="https://t.me/xFlexyy">
+        <img src="https://img.shields.io/badge/Developer-xFlexyy-blue?style=flat-square&logo=telegram" alt="Developer">
     </a>
 </p>
 
 ---
 
-## 🛠 Features
-- 🖼️ **Custom Thumbnails** - Set your own cover for videos
-- ⚡ **Fast Processing** - Instant video forwarding
-- 🔄 **Rotating Images** - Dynamic start images
-- 👥 **User Database** - MongoDB storage
-- 🏆 **Leaderboard** - Track top users
-- 🛡️ **Admin Controls** - Ban, Broadcast, Stats
-- 🐳 **Docker & Heroku Support**
+## 🚀 About This Bot
 
-## 🚀 Deployment
+Video Thumbnail Bot is a fast and powerful Telegram bot that allows users to:
+
+- 🖼️ Set custom thumbnails for videos  
+- ⚡ Instantly process and forward videos  
+- 🔄 Use rotating dynamic start images  
+- 👥 Store users securely in MongoDB  
+- 🏆 Track top users with leaderboard system  
+- 🛡️ Use advanced admin controls  
+
+Perfect for Telegram content creators and power users.
+
+---
+
+## ✨ Features
+
+- 🎨 Custom Thumbnail Support  
+- ⚡ High-Speed Processing  
+- 🔄 Rotating Start Images  
+- 📊 Leaderboard System  
+- 👥 MongoDB User Database  
+- 🔐 Admin Panel (Ban / Broadcast / Stats)  
+- 🐳 Docker Supported  
+- ☁️ Deployable on Render, Heroku & Koyeb  
+
+---
+
+## 📦 Deployment Guide
+
+### ☁️ Render (Recommended Free Tier)
+1. Fork this repository  
+2. Create a new **Web Service**  
+3. Connect your GitHub repo  
+4. Add Environment Variables  
+5. Deploy  
+
+---
 
 ### 💜 Heroku
-<p>
-<a href="https://heroku.com/deploy?template=https://github.com/cantarella-wuwa/thumbnail-bot">
-  <img src="https://www.herokucdn.com/deploy/button.svg" alt="Deploy">
-</a>
-</p>
+1. Fork repository  
+2. Create new app  
+3. Connect GitHub  
+4. Add Config Vars  
+5. Deploy `web` dyno  
 
-1. Fork this repo.
-2. Create a new app on Heroku.
-3. Connect GitHub repo.
-4. Add Config Vars.
-5. Deploy `web` dyno.
+---
 
-### ☁️ Render (Free Tier)
-1. Fork this repo.
-2. Create a new **Web Service** on Render.
-3. Connect GitHub repo.
-4. Add Environment Variables.
-5. Deploy! (Runs on free tier).
+### 🟢 Koyeb
+1. Fork repository  
+2. Create new App  
+3. Choose Docker deployment  
+4. Add Environment Variables  
+5. Deploy  
 
-### 🟢 Koyeb (Free Tier)
-1. Fork this repo.
-2. Create a new **App** on Koyeb.
-3. Select Docker deployment.
-4. Add Environment Variables.
-5. Deploy!
+---
 
 ### 🐳 Docker
 ```bash
-docker build -t cantarellabots-thumbnail-bot .
-docker run --env-file .env cantarellabots-thumbnail-bot
+docker build -t thumbnail-bot .
+docker run --env-file .env thumbnail-bot
 ```
 
-### 💻 Local
+---
+
+### 💻 Run Locally
 ```bash
 pip install -r requirements.txt
 python main.py
 ```
 
-## ⚙️ Configuration
+---
+
+## ⚙️ Configuration Variables
 
 | Variable | Description | Required |
 |----------|-------------|----------|
 | `API_TOKEN` | Bot Token from @BotFather | ✅ |
 | `MONGO_URL` | MongoDB Connection String | ✅ |
 | `OWNER_ID` | Your Telegram User ID | ✅ |
-| `LOG_CHANNEL` | Log Channel ID (e.g., -100xxxx) | ❌ |
-| `CHANNEL_URL` | Channel URL for Join button | ❌ |
-| `DEV_URL` | Developer Telegram URL | ❌ |
+| `LOG_CHANNEL` | Log Channel ID (Optional) | ❌ |
+| `CHANNEL_URL` | Join Channel URL | ❌ |
+| `DEV_URL` | Developer URL | ❌ |
+
+---
 
 ## 🤖 Bot Commands
-Copy and paste this into BotFather:
-```text
+
+```
 start - Start the bot
 users - (Admin) View all users
-topleaderboard - (Admin) Top users
+topleaderboard - (Admin) View leaderboard
 broadcast - (Admin) Broadcast message
 ban - (Admin) Ban a user
 unban - (Admin) Unban a user
@@ -87,26 +112,46 @@ add_admin - (Owner) Add admin
 remove_admin - (Owner) Remove admin
 ```
 
+---
+
 ## 📁 Project Structure
+
 ```
 thumbnail-bot/
-├── main.py           # Entry point
-├── config.py         # Configuration
-├── database.py       # MongoDB functions
+├── main.py
+├── config.py
+├── database.py
 ├── plugins/
-│   ├── start.py      # /start command
-│   ├── settings.py   # Thumbnail settings
-│   ├── video.py      # Video handler
-│   └── admin.py      # Admin commands
+│   ├── start.py
+│   ├── settings.py
+│   ├── video.py
+│   └── admin.py
 ├── Dockerfile
 ├── Procfile
 └── requirements.txt
 ```
 
-## 👨‍💻 Credits
-- **Developer**: [@cantarella_wuwa](https://t.me/cantarella_wuwa)
-- **Channel**: [Cantarella Bots](https://t.me/cantarellabots)
-- **Helper**: [@yato](https://github.com/ProYato)
+---
+
+## 👑 Credits
+
+- 💻 Original Developer: [@cantarella_wuwa](https://t.me/cantarella_wuwa)  
+- 🔥 Modified & Enhanced By: [@xFlexyy](https://t.me/xFlexyy)  
+- 🌐 Community: [@DragonByte_Network](https://t.me/DragonByte_Network)  
+
+---
+
+## 📌 Important Notice
+
+This repository was created by forking the original project:
+
+👉 https://github.com/cantarella-wuwa/cantarellabots-thumbnail-bot  
+
+All core credits belong to the original developer.  
+Please give proper credit if you use or modify this project.
+
+---
+
 <p align="center">
-  <b>⭐ Star this repo if you like it!</b>
+⭐ Star this repo if you like it!
 </p>
