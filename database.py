@@ -6,6 +6,7 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 from typing import Optional, List, Dict, Any
 from config import MONGO_URL, DB_NAME, OWNER_ID
+import datetime  # ⬅️ YEH ADD KARNA HI KARNA HAI
 
 client: AsyncIOMotorClient = None
 db = None
@@ -137,7 +138,6 @@ async def get_all_admins() -> List[int]:
 # ==================== RENDER URL FUNCTIONS ====================
 
 async def add_url(url: str, name: str = None) -> bool:
-    """Add a new URL to ping list"""
     try:
         if not name:
             name = url.replace("https://", "").replace("http://", "").split(".")[0]
@@ -161,16 +161,13 @@ async def add_url(url: str, name: str = None) -> bool:
         return False
 
 async def remove_url(url: str) -> bool:
-    """Remove a URL from ping list"""
     result = await db.urls.delete_one({"url": url})
     return result.deleted_count > 0
 
 async def get_all_urls() -> List[Dict[str, Any]]:
-    """Get all URLs from database"""
     return await db.urls.find().to_list(length=None)
 
 async def update_url_status(url: str, status: int = None, error: str = None):
-    """Update last ping status for URL"""
     update_data = {
         "last_ping": datetime.datetime.now(),
         "last_status": status if status else "Failed"
@@ -184,21 +181,18 @@ async def update_url_status(url: str, status: int = None, error: str = None):
     )
 
 async def toggle_url(url: str, active: bool):
-    """Enable/disable URL ping"""
     await db.urls.update_one(
         {"url": url},
         {"$set": {"active": active}}
     )
 
 async def get_bot_start_time() -> datetime.datetime:
-    """Get bot start time from database"""
     doc = await db.settings.find_one({"key": "start_time"})
     if doc:
         return doc.get("value")
     return None
 
 async def set_bot_start_time(time: datetime.datetime):
-    """Save bot start time to database"""
     await db.settings.update_one(
         {"key": "start_time"},
         {"$set": {"value": time}},
