@@ -6,7 +6,7 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 from typing import Optional, List, Dict, Any
 from config import MONGO_URL, DB_NAME, OWNER_ID
-import datetime  # ⬅️ YEH ADD KARNA HI KARNA HAI
+import datetime  # ⬅️ CRITICAL IMPORT
 
 client: AsyncIOMotorClient = None
 db = None
