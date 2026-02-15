@@ -9,11 +9,11 @@ import asyncio
 from flask import Flask
 import threading
 import os
+import datetime  # Add this if not present
 from config import API_TOKEN
 from database import init_db, close_db, set_bot_start_time
 from plugins import start_router, settings_router, video_router, admin_router
-from uptime import router as uptime_router, start_ping_task
-import datetime
+from plugins.uptime import router as uptime_router, start_ping_task  # ✅ FIXED IMPORT
 
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
@@ -23,7 +23,7 @@ dp.include_router(start_router)
 dp.include_router(settings_router)
 dp.include_router(video_router)
 dp.include_router(admin_router)
-dp.include_router(uptime_router)
+dp.include_router(uptime_router)  # Add uptime router
 
 app = Flask(__name__)
 
@@ -44,7 +44,7 @@ async def main():
     # Start ping task
     await start_ping_task()
     
-    print(" Bot is starting with Uptime Monitor...")
+    print("🚀 Bot is starting with Uptime Monitor...")
     
     try:
         await dp.start_polling(bot)
@@ -53,12 +53,12 @@ async def main():
 
 if __name__ == "__main__":
     print("""
-     
- 
-            
-              
-            
-              
+██████╗ ██████╗ ██╗   ██╗████████╗███████╗
+██╔══██╗██╔══██╗╚██╗ ██╔╝╚══██╔══╝██╔════╝
+██║  ██║██████╔╝ ╚████╔╝    ██║   █████╗  
+██║  ██║██╔══██╗  ╚██╔╝     ██║   ██╔══╝  
+██████╔╝██████╔╝   ██║      ██║   ███████╗
+╚═════╝ ╚═════╝    ╚═╝      ╚═╝   ╚══════╝
                                         
           THUMBNAIL CHANGER BOT WORKING PROPERLY....
           WITH UPTIME MONITOR & MULTIPLE URL SUPPORT
