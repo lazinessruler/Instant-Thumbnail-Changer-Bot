@@ -9,12 +9,16 @@ import asyncio
 from flask import Flask
 import threading
 import os
-import datetime  # Add this if not present
+import datetime
 from config import API_TOKEN
 from database import init_db, close_db, set_bot_start_time
-from plugins import start_router, settings_router, video_router, admin_router
-from plugins.uptime import router as uptime_router, start_ping_task  # ✅ FIXED IMPORT
+from plugins.start import router as start_router
+from plugins.settings import router as settings_router
+from plugins.video import router as video_router
+from plugins.admin import router as admin_router
+from plugins.uptime import router as uptime_router, start_ping_task  #  FIXED IMPORT
 
+# Initialize bot and dispatcher
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
@@ -25,6 +29,7 @@ dp.include_router(video_router)
 dp.include_router(admin_router)
 dp.include_router(uptime_router)  # Add uptime router
 
+# Flask health check server
 app = Flask(__name__)
 
 @app.route("/")
@@ -36,6 +41,7 @@ def run_flask():
     app.run(host="0.0.0.0", port=port)
 
 async def main():
+    # Initialize database
     await init_db()
     
     # Save bot start time
@@ -44,7 +50,7 @@ async def main():
     # Start ping task
     await start_ping_task()
     
-    print("🚀 Bot is starting with Uptime Monitor...")
+    print(" Bot is starting with Uptime Monitor...")
     
     try:
         await dp.start_polling(bot)
@@ -53,12 +59,12 @@ async def main():
 
 if __name__ == "__main__":
     print("""
-██████╗ ██████╗ ██╗   ██╗████████╗███████╗
-██╔══██╗██╔══██╗╚██╗ ██╔╝╚══██╔══╝██╔════╝
-██║  ██║██████╔╝ ╚████╔╝    ██║   █████╗  
-██║  ██║██╔══██╗  ╚██╔╝     ██║   ██╔══╝  
-██████╔╝██████╔╝   ██║      ██║   ███████╗
-╚═════╝ ╚═════╝    ╚═╝      ╚═╝   ╚══════╝
+     
+ 
+            
+              
+            
+              
                                         
           THUMBNAIL CHANGER BOT WORKING PROPERLY....
           WITH UPTIME MONITOR & MULTIPLE URL SUPPORT
