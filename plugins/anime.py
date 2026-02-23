@@ -1,52 +1,36 @@
+import aiohttp
+import asyncio
 import datetime
 import html
 import textwrap
-
-import bs4
+from aiogram import Router, types, F
+from aiogram.filters import Command
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+from aiogram.utils.markdown import hbold, hcode, hlink
+from bs4 import BeautifulSoup
 import jikanpy
-import requests
-from SaitamaRobot import dispatcher
-from SaitamaRobot.modules.disable import DisableAbleCommandHandler
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ParseMode, Update, Message
-from telegram.ext import CallbackContext, run_async
+from config import OWNER_ID
 
-info_btn = "More Information"
-kaizoku_btn = "Kaizoku ☠️"
-kayo_btn = "Kayo 🏴‍☠️"
-prequel_btn = "⬅️ Prequel"
-sequel_btn = "Sequel ➡️"
-close_btn = "Close ❌"
+# Create router for this module
+router = Router()
 
+# Module constants
+MODULE_NAME = "Anime"
+MODULE_DESCRIPTION = "Get information about anime, manga and characters"
 
-def shorten(description, info="anilist.co"):
-    msg = ""
-    if len(description) > 700:
-        description = description[0:500] + "...."
-        msg += f"\n*Description*: _{description}_[Read More]({info})"
-    else:
-        msg += f"\n*Description*:_{description}_"
-    return msg
+# AniList API URL
+ANILIST_API_URL = "https://graphql.anilist.co"
 
+# Button texts
+INFO_BTN = "More Information"
+KAIZOKU_BTN = "Kaizoku ☠️"
+KAYO_BTN = "Kayo 🏴‍☠️"
+PREQUEL_BTN = "⬅️ Prequel"
+SEQUEL_BTN = "Sequel ➡️"
+CLOSE_BTN = "Close ❌"
 
-# time formatter from uniborg
-def t(milliseconds: int) -> str:
-    """Inputs time in milliseconds, to get beautified time,
-    as string"""
-    seconds, milliseconds = divmod(int(milliseconds), 1000)
-    minutes, seconds = divmod(seconds, 60)
-    hours, minutes = divmod(minutes, 60)
-    days, hours = divmod(hours, 24)
-    tmp = (
-        ((str(days) + " Days, ") if days else "")
-        + ((str(hours) + " Hours, ") if hours else "")
-        + ((str(minutes) + " Minutes, ") if minutes else "")
-        + ((str(seconds) + " Seconds, ") if seconds else "")
-        + ((str(milliseconds) + " ms, ") if milliseconds else "")
-    )
-    return tmp[:-2]
-
-
-airing_query = """
+# GraphQL Queries
+AIRING_QUERY = """
 query ($id: Int,$search: String) {
     Media (id: $id, type: ANIME,search: $search) {
         id
@@ -65,20 +49,7 @@ query ($id: Int,$search: String) {
 }
 """
 
-fav_query = """
-query ($id: Int) {
-    Media (id: $id, type: ANIME) {
-        id
-        title {
-            romaji
-            english
-            native
-        }
-    }
-}
-"""
-
-anime_query = """
+ANIME_QUERY = """
 query ($id: Int,$search: String) {
     Media (id: $id, type: ANIME,search: $search) {
         id
@@ -115,7 +86,7 @@ query ($id: Int,$search: String) {
 }
 """
 
-character_query = """
+CHARACTER_QUERY = """
 query ($query: String) {
     Character (search: $query) {
         id
@@ -133,7 +104,7 @@ query ($query: String) {
 }
 """
 
-manga_query = """
+MANGA_QUERY = """
 query ($id: Int,$search: String) {
     Media (id: $id, type: MANGA,search: $search) {
         id
@@ -157,432 +128,552 @@ query ($id: Int,$search: String) {
 }
 """
 
-url = "https://graphql.anilist.co"
+FAV_QUERY = """
+query ($id: Int) {
+    Media (id: $id, type: ANIME) {
+        id
+        title {
+            romaji
+            english
+            native
+        }
+    }
+}
+"""
 
-def extract_arg(message: Message):
+def shorten(description: str, info: str = "anilist.co") -> str:
+    """Shorten long descriptions"""
+    if len(description) > 700:
+        description = description[0:500] + "..."
+        return f"\n*Description*: _{description}_ [Read More]({info})"
+    else:
+        return f"\n*Description*: _{description}_"
+
+def format_time(milliseconds: int) -> str:
+    """Format time from milliseconds"""
+    seconds, milliseconds = divmod(int(milliseconds), 1000)
+    minutes, seconds = divmod(seconds, 60)
+    hours, minutes = divmod(minutes, 60)
+    days, hours = divmod(hours, 24)
+    
+    parts = []
+    if days:
+        parts.append(f"{days} Days")
+    if hours:
+        parts.append(f"{hours} Hours")
+    if minutes:
+        parts.append(f"{minutes} Minutes")
+    if seconds:
+        parts.append(f"{seconds} Seconds")
+    if milliseconds:
+        parts.append(f"{milliseconds} ms")
+    
+    return ", ".join(parts) if parts else "0 Seconds"
+
+async def fetch_anilist(query: str, variables: dict):
+    """Fetch data from AniList API"""
+    async with aiohttp.ClientSession() as session:
+        try:
+            async with session.post(
+                ANILIST_API_URL,
+                json={"query": query, "variables": variables},
+                timeout=10
+            ) as resp:
+                data = await resp.json()
+                return data
+        except Exception as e:
+            print(f"AniList API error: {e}")
+            return None
+
+def extract_arg(message: types.Message) -> str:
+    """Extract argument from message"""
+    if not message.text:
+        return None
+        
     split = message.text.split(" ", 1)
     if len(split) > 1:
         return split[1]
-    reply = message.reply_to_message
-    if reply is not None:
-        return reply.text
+    
+    if message.reply_to_message and message.reply_to_message.text:
+        return message.reply_to_message.text
+    
     return None
 
-@run_async
-def airing(update: Update, context: CallbackContext):
-    message = update.effective_message
+@router.message(Command("airing"))
+async def airing_command(message: types.Message):
+    """Get anime airing information"""
     search_str = extract_arg(message)
+    
     if not search_str:
-        update.effective_message.reply_text(
-            "Tell Anime Name :) ( /airing <anime name>)",
+        await message.reply(
+            "❌ Please provide an anime name!\n"
+            "Usage: /airing <anime name>"
         )
         return
+    
+    status_msg = await message.reply("🔍 Searching for anime...")
+    
     variables = {"search": search_str}
-    response = requests.post(
-        url, json={"query": airing_query, "variables": variables},
-    ).json()["data"]["Media"]
-    msg = f"*Name*: *{response['title']['romaji']}*(`{response['title']['native']}`)\n*ID*: `{response['id']}`"
-    if response["nextAiringEpisode"]:
-        time = response["nextAiringEpisode"]["timeUntilAiring"] * 1000
-        time = t(time)
-        msg += f"\n*Episode*: `{response['nextAiringEpisode']['episode']}`\n*Airing In*: `{time}`"
-    else:
-        msg += f"\n*Episode*:{response['episodes']}\n*Status*: `N/A`"
-    update.effective_message.reply_text(msg, parse_mode=ParseMode.MARKDOWN)
-
-
-@run_async
-def anime(update: Update, context: CallbackContext):
-    message = update.effective_message
-    search = extract_arg(message)
-    if not search:
-        update.effective_message.reply_text("Format : /anime < anime name >")
+    data = await fetch_anilist(AIRING_QUERY, variables)
+    
+    if not data or "errors" in data:
+        await status_msg.edit_text("❌ Anime not found!")
         return
-    variables = {"search": search}
-    json = requests.post(
-        url, json={"query": anime_query, "variables": variables},
-    ).json()
-    if "errors" in json.keys():
-        update.effective_message.reply_text("Anime not found")
-        return
-    if json:
-        json = json["data"]["Media"]
-        msg = f"*{json['title']['romaji']}*(`{json['title']['native']}`)\n*Type*: {json['format']}\n*Status*: {json['status']}\n*Episodes*: {json.get('episodes', 'N/A')}\n*Duration*: {json.get('duration', 'N/A')} Per Ep.\n*Score*: {json['averageScore']}\n*Genres*: `"
-        for x in json["genres"]:
-            msg += f"{x}, "
-        msg = msg[:-2] + "`\n"
-        msg += "*Studios*: `"
-        for x in json["studios"]["nodes"]:
-            msg += f"{x['name']}, "
-        msg = msg[:-2] + "`\n"
-        info = json.get("siteUrl")
-        trailer = json.get("trailer", None)
-        anime_id = json["id"]
-        if trailer:
-            trailer_id = trailer.get("id", None)
-            site = trailer.get("site", None)
-            if site == "youtube":
-                trailer = "https://youtu.be/" + trailer_id
-        description = (
-            json.get("description", "N/A")
-            .replace("<i>", "")
-            .replace("</i>", "")
-            .replace("<br>", "")
+    
+    media = data["data"]["Media"]
+    
+    # Format message
+    title = media['title']['romaji']
+    native = media['title']['native']
+    
+    text = (
+        f"🎬 {hbold(title)} ({hcode(native)})\n"
+        f"📋 ID: {hcode(str(media['id']))}\n"
+    )
+    
+    if media.get("nextAiringEpisode"):
+        next_ep = media["nextAiringEpisode"]
+        time_str = format_time(next_ep["timeUntilAiring"] * 1000)
+        text += (
+            f"📺 Next Episode: {hbold(str(next_ep['episode']))}\n"
+            f"⏰ Airing in: {hcode(time_str)}"
         )
-        msg += shorten(description, info)
-        image = json.get("bannerImage", None)
-        if trailer:
-            buttons = [
-                [
-                    InlineKeyboardButton("More Info", url=info),
-                    InlineKeyboardButton("Trailer 🎬", url=trailer),
-                ],
-            ]
-        else:
-            buttons = [[InlineKeyboardButton("More Info", url=info)]]
-        if image:
-            try:
-                update.effective_message.reply_photo(
-                    photo=image,
-                    caption=msg,
-                    parse_mode=ParseMode.MARKDOWN,
-                    reply_markup=InlineKeyboardMarkup(buttons),
-                )
-            except:
-                msg += f" [〽️]({image})"
-                update.effective_message.reply_text(
-                    msg,
-                    parse_mode=ParseMode.MARKDOWN,
-                    reply_markup=InlineKeyboardMarkup(buttons),
-                )
-        else:
-            update.effective_message.reply_text(
-                msg,
-                parse_mode=ParseMode.MARKDOWN,
-                reply_markup=InlineKeyboardMarkup(buttons),
-            )
+    else:
+        text += f"📺 Episodes: {media.get('episodes', 'N/A')}\n"
+        text += f"⏰ Status: {hcode('Completed/Airing unknown')}"
+    
+    await status_msg.edit_text(text, parse_mode="HTML")
 
-
-@run_async
-def character(update: Update, context: CallbackContext):
-    message = update.effective_message
-    search = extract_arg(message)
-    if not search:
-        update.effective_message.reply_text("Format : /character < character name >")
+@router.message(Command("anime"))
+async def anime_command(message: types.Message):
+    """Get anime information"""
+    search_str = extract_arg(message)
+    
+    if not search_str:
+        await message.reply(
+            "❌ Please provide an anime name!\n"
+            "Usage: /anime <anime name>"
+        )
         return
-    variables = {"query": search}
-    json = requests.post(
-        url, json={"query": character_query, "variables": variables},
-    ).json()
-    if "errors" in json.keys():
-        update.effective_message.reply_text("Character not found")
+    
+    status_msg = await message.reply("🔍 Searching for anime...")
+    
+    variables = {"search": search_str}
+    data = await fetch_anilist(ANIME_QUERY, variables)
+    
+    if not data or "errors" in data:
+        await status_msg.edit_text("❌ Anime not found!")
         return
-    if json:
-        json = json["data"]["Character"]
-        msg = f"*{json.get('name').get('full')}*(`{json.get('name').get('native')}`)\n"
-        description = f"{json['description']}"
-        site_url = json.get("siteUrl")
-        msg += shorten(description, site_url)
-        image = json.get("image", None)
-        if image:
-            image = image.get("large")
-            update.effective_message.reply_photo(
+    
+    media = data["data"]["Media"]
+    
+    # Build message
+    title_romaji = media['title']['romaji']
+    title_native = media['title']['native']
+    
+    msg = (
+        f"🎬 {hbold(title_romaji)} ({hcode(title_native)})\n"
+        f"📺 Type: {media.get('format', 'N/A')}\n"
+        f"📊 Status: {media.get('status', 'N/A')}\n"
+        f"📋 Episodes: {media.get('episodes', 'N/A')}\n"
+        f"⏱️ Duration: {media.get('duration', 'N/A')} min/ep\n"
+        f"⭐ Score: {media.get('averageScore', 'N/A')}\n"
+    )
+    
+    # Genres
+    genres = media.get('genres', [])
+    if genres:
+        msg += f"🎭 Genres: {hcode(', '.join(genres[:5]))}\n"
+    
+    # Studios
+    studios = media.get('studios', {}).get('nodes', [])
+    if studios:
+        studio_names = [s['name'] for s in studios[:3]]
+        msg += f"🏢 Studios: {hcode(', '.join(studio_names))}\n"
+    
+    # Description
+    description = media.get('description', 'No description available.')
+    description = description.replace('<i>', '').replace('</i>', '').replace('<br>', '')
+    if len(description) > 500:
+        description = description[:500] + "..."
+    msg += f"\n📝 {description}"
+    
+    # Buttons
+    buttons = []
+    info_url = media.get('siteUrl')
+    if info_url:
+        buttons.append([InlineKeyboardButton(text="📖 More Info", url=info_url)])
+    
+    # Trailer
+    trailer = media.get('trailer')
+    if trailer and trailer.get('site') == 'youtube':
+        trailer_url = f"https://youtu.be/{trailer['id']}"
+        buttons.append([InlineKeyboardButton(text="🎬 Trailer", url=trailer_url)])
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
+    
+    # Send with image if available
+    image = media.get('bannerImage')
+    if image:
+        try:
+            await status_msg.delete()
+            await message.reply_photo(
                 photo=image,
-                caption=msg.replace("<b>", "</b>"),
-                parse_mode=ParseMode.MARKDOWN,
+                caption=msg,
+                parse_mode="HTML",
+                reply_markup=keyboard
             )
-        else:
-            update.effective_message.reply_text(
-                msg.replace("<b>", "</b>"), parse_mode=ParseMode.MARKDOWN,
-            )
+            return
+        except:
+            pass
+    
+    await status_msg.edit_text(msg, parse_mode="HTML", reply_markup=keyboard)
 
-
-@run_async
-def manga(update: Update, context: CallbackContext):
-    message = update.effective_message
-    search = extract_arg(message)
-    if not search:
-        update.effective_message.reply_text("Format : /manga < manga name >")
-        return
-    variables = {"search": search}
-    json = requests.post(
-        url, json={"query": manga_query, "variables": variables},
-    ).json()
-    msg = ""
-    if "errors" in json.keys():
-        update.effective_message.reply_text("Manga not found")
-        return
-    if json:
-        json = json["data"]["Media"]
-        title, title_native = json["title"].get("romaji", False), json["title"].get(
-            "native", False,
+@router.message(Command("character"))
+async def character_command(message: types.Message):
+    """Get character information"""
+    search_str = extract_arg(message)
+    
+    if not search_str:
+        await message.reply(
+            "❌ Please provide a character name!\n"
+            "Usage: /character <character name>"
         )
-        start_date, status, score = (
-            json["startDate"].get("year", False),
-            json.get("status", False),
-            json.get("averageScore", False),
-        )
-        if title:
-            msg += f"*{title}*"
-            if title_native:
-                msg += f"(`{title_native}`)"
-        if start_date:
-            msg += f"\n*Start Date* - `{start_date}`"
-        if status:
-            msg += f"\n*Status* - `{status}`"
-        if score:
-            msg += f"\n*Score* - `{score}`"
-        msg += "\n*Genres* - "
-        for x in json.get("genres", []):
-            msg += f"{x}, "
-        msg = msg[:-2]
-        info = json["siteUrl"]
-        buttons = [[InlineKeyboardButton("More Info", url=info)]]
-        image = json.get("bannerImage", False)
-        msg += f"_{json.get('description', None)}_"
-        if image:
-            try:
-                update.effective_message.reply_photo(
-                    photo=image,
-                    caption=msg,
-                    parse_mode=ParseMode.MARKDOWN,
-                    reply_markup=InlineKeyboardMarkup(buttons),
-                )
-            except:
-                msg += f" [〽️]({image})"
-                update.effective_message.reply_text(
-                    msg,
-                    parse_mode=ParseMode.MARKDOWN,
-                    reply_markup=InlineKeyboardMarkup(buttons),
-                )
-        else:
-            update.effective_message.reply_text(
-                msg,
-                parse_mode=ParseMode.MARKDOWN,
-                reply_markup=InlineKeyboardMarkup(buttons),
-            )
-
-
-@run_async
-def user(update: Update, context: CallbackContext):
-    message = update.effective_message
-    search_query = extract_arg(message)
-
-    if not search_query:
-        update.effective_message.reply_text("Format : /user <username>")
         return
+    
+    status_msg = await message.reply("🔍 Searching for character...")
+    
+    variables = {"query": search_str}
+    data = await fetch_anilist(CHARACTER_QUERY, variables)
+    
+    if not data or "errors" in data:
+        await status_msg.edit_text("❌ Character not found!")
+        return
+    
+    character = data["data"]["Character"]
+    
+    # Build message
+    name = character['name']['full']
+    native = character['name'].get('native', '')
+    
+    msg = f"👤 {hbold(name)}"
+    if native:
+        msg += f" ({hcode(native)})"
+    msg += "\n\n"
+    
+    # Description
+    description = character.get('description', 'No description available.')
+    description = description.replace('<b>', '').replace('</b>', '')
+    if len(description) > 1000:
+        description = description[:1000] + "..."
+    msg += description
+    
+    # Image
+    image = character.get('image', {}).get('large')
+    if image:
+        try:
+            await status_msg.delete()
+            await message.reply_photo(
+                photo=image,
+                caption=msg,
+                parse_mode="HTML"
+            )
+            return
+        except:
+            pass
+    
+    await status_msg.edit_text(msg, parse_mode="HTML")
 
-    jikan = jikanpy.jikan.Jikan()
+@router.message(Command("manga"))
+async def manga_command(message: types.Message):
+    """Get manga information"""
+    search_str = extract_arg(message)
+    
+    if not search_str:
+        await message.reply(
+            "❌ Please provide a manga name!\n"
+            "Usage: /manga <manga name>"
+        )
+        return
+    
+    status_msg = await message.reply("🔍 Searching for manga...")
+    
+    variables = {"search": search_str}
+    data = await fetch_anilist(MANGA_QUERY, variables)
+    
+    if not data or "errors" in data:
+        await status_msg.edit_text("❌ Manga not found!")
+        return
+    
+    media = data["data"]["Media"]
+    
+    # Build message
+    title_romaji = media['title']['romaji']
+    title_native = media['title']['native']
+    
+    msg = (
+        f"📚 {hbold(title_romaji)} ({hcode(title_native)})\n"
+        f"📋 Type: {media.get('format', 'N/A')}\n"
+        f"📊 Status: {media.get('status', 'N/A')}\n"
+        f"📅 Start Year: {media.get('startDate', {}).get('year', 'N/A')}\n"
+        f"⭐ Score: {media.get('averageScore', 'N/A')}\n"
+    )
+    
+    # Genres
+    genres = media.get('genres', [])
+    if genres:
+        msg += f"🎭 Genres: {hcode(', '.join(genres[:5]))}\n"
+    
+    # Description
+    description = media.get('description', 'No description available.')
+    description = description.replace('<i>', '').replace('</i>', '').replace('<br>', '')
+    if len(description) > 500:
+        description = description[:500] + "..."
+    msg += f"\n📝 {description}"
+    
+    # Button
+    info_url = media.get('siteUrl')
+    keyboard = None
+    if info_url:
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📖 More Info", url=info_url)]
+        ])
+    
+    # Send with image if available
+    image = media.get('bannerImage')
+    if image:
+        try:
+            await status_msg.delete()
+            await message.reply_photo(
+                photo=image,
+                caption=msg,
+                parse_mode="HTML",
+                reply_markup=keyboard
+            )
+            return
+        except:
+            pass
+    
+    await status_msg.edit_text(msg, parse_mode="HTML", reply_markup=keyboard)
 
+@router.message(Command("user"))
+async def user_command(message: types.Message):
+    """Get MyAnimeList user information"""
+    search_str = extract_arg(message)
+    
+    if not search_str:
+        await message.reply(
+            "❌ Please provide a username!\n"
+            "Usage: /user <username>"
+        )
+        return
+    
+    status_msg = await message.reply("🔍 Searching for user...")
+    
     try:
-        us = jikan.user(search_query)
-    except jikanpy.APIException:
-        update.effective_message.reply_text("Username not found.")
+        # Using jikanpy with asyncio
+        loop = asyncio.get_event_loop()
+        jikan = jikanpy.jikan.Jikan()
+        user_data = await loop.run_in_executor(None, lambda: jikan.user(search_str))
+    except Exception:
+        await status_msg.edit_text("❌ User not found!")
         return
-
-    progress_message = update.effective_message.reply_text("Searching.... ")
-
+    
+    # Format dates
     date_format = "%Y-%m-%d"
-    if us["image_url"] is None:
-        img = "https://cdn.myanimelist.net/images/questionmark_50.gif"
-    else:
-        img = us["image_url"]
-
+    
     try:
-        user_birthday = datetime.datetime.fromisoformat(us["birthday"])
-        user_birthday_formatted = user_birthday.strftime(date_format)
-    except:
-        user_birthday_formatted = "Unknown"
-
-    user_joined_date = datetime.datetime.fromisoformat(us["joined"])
-    user_joined_date_formatted = user_joined_date.strftime(date_format)
-
-    for entity in us:
-        if us[entity] is None:
-            us[entity] = "Unknown"
-
-    about = us["about"].split(" ", 60)
-
-    try:
-        about.pop(60)
-    except IndexError:
-        pass
-
-    about_string = " ".join(about)
-    about_string = about_string.replace("<br>", "").strip().replace("\r\n", "\n")
-
-    caption = ""
-
-    caption += textwrap.dedent(
-        f"""
-    *Username*: [{us['username']}]({us['url']})
-
-    *Gender*: `{us['gender']}`
-    *Birthday*: `{user_birthday_formatted}`
-    *Joined*: `{user_joined_date_formatted}`
-    *Days wasted watching anime*: `{us['anime_stats']['days_watched']}`
-    *Days wasted reading manga*: `{us['manga_stats']['days_read']}`
-
-    """,
-    )
-
-    caption += f"*About*: {about_string}"
-
-    buttons = [
-        [InlineKeyboardButton(info_btn, url=us["url"])],
-        [
-            InlineKeyboardButton(
-                close_btn, callback_data=f"anime_close, {message.from_user.id}",
-            ),
-        ],
-    ]
-
-    update.effective_message.reply_photo(
-        photo=img,
-        caption=caption,
-        parse_mode=ParseMode.MARKDOWN,
-        reply_markup=InlineKeyboardMarkup(buttons),
-        disable_web_page_preview=False,
-    )
-    progress_message.delete()
-
-
-@run_async
-def upcoming(update: Update, context: CallbackContext):
-    jikan = jikanpy.jikan.Jikan()
-    upcomin = jikan.top("anime", page=1, subtype="upcoming")
-
-    upcoming_list = [entry["title"] for entry in upcomin["top"]]
-    upcoming_message = ""
-
-    for entry_num in range(len(upcoming_list)):
-        if entry_num == 10:
-            break
-        upcoming_message += f"{entry_num + 1}. {upcoming_list[entry_num]}\n"
-
-    update.effective_message.reply_text(upcoming_message)
-
-
-def site_search(update: Update, context: CallbackContext, site: str):
-    message = update.effective_message
-    search_query = extract_arg(message)
-    more_results = True
-
-    if not search_query:
-        message.reply_text("Give something to search")
-        return
-
-    if site == "kaizoku":
-        search_url = f"https://animekaizoku.com/?s={search_query}"
-        html_text = requests.get(search_url).text
-        soup = bs4.BeautifulSoup(html_text, "html.parser")
-        search_result = soup.find_all("h2", {"class": "post-title"})
-
-        if search_result:
-            result = f"<b>Search results for</b> <code>{html.escape(search_query)}</code> <b>on</b> @KaizokuAnime: \n"
-            for entry in search_result:
-                post_link = "https://animekaizoku.com/" + entry.a["href"]
-                post_name = html.escape(entry.text)
-                result += f"• <a href='{post_link}'>{post_name}</a>\n"
+        if user_data.get('birthday'):
+            birthday = datetime.datetime.fromisoformat(user_data['birthday'].replace('Z', '+00:00'))
+            birthday_str = birthday.strftime(date_format)
         else:
-            more_results = False
-            result = f"<b>No result found for</b> <code>{html.escape(search_query)}</code> <b>on</b> @KaizokuAnime"
+            birthday_str = "Unknown"
+    except:
+        birthday_str = "Unknown"
+    
+    try:
+        joined = datetime.datetime.fromisoformat(user_data['joined'].replace('Z', '+00:00'))
+        joined_str = joined.strftime(date_format)
+    except:
+        joined_str = "Unknown"
+    
+    # Clean about section
+    about = user_data.get('about', 'No bio available.')
+    about = about.replace('<br>', '').strip()
+    if len(about) > 200:
+        about = about[:200] + "..."
+    
+    # Build message
+    msg = (
+        f"👤 {hbold(user_data['username'])}\n"
+        f"🔗 {hlink('MAL Profile', user_data['url'])}\n\n"
+        f"⚥ Gender: {user_data.get('gender', 'Unknown')}\n"
+        f"🎂 Birthday: {birthday_str}\n"
+        f"📅 Joined: {joined_str}\n"
+        f"📺 Anime Days: {user_data.get('anime_stats', {}).get('days_watched', 0)}\n"
+        f"📚 Manga Days: {user_data.get('manga_stats', {}).get('days_read', 0)}\n\n"
+        f"📝 {about}"
+    )
+    
+    # Image
+    image = user_data.get('image_url')
+    if image and image != "https://cdn.myanimelist.net/img/sp/icon_user.jpg":
+        try:
+            await status_msg.delete()
+            await message.reply_photo(
+                photo=image,
+                caption=msg,
+                parse_mode="HTML"
+            )
+            return
+        except:
+            pass
+    
+    await status_msg.edit_text(msg, parse_mode="HTML", disable_web_page_preview=True)
 
+@router.message(Command("upcoming"))
+async def upcoming_command(message: types.Message):
+    """Get upcoming anime"""
+    status_msg = await message.reply("🔍 Fetching upcoming anime...")
+    
+    try:
+        loop = asyncio.get_event_loop()
+        jikan = jikanpy.jikan.Jikan()
+        upcoming = await loop.run_in_executor(
+            None, 
+            lambda: jikan.top("anime", page=1, subtype="upcoming")
+        )
+        
+        upcoming_list = [entry["title"] for entry in upcoming["top"][:10]]
+        
+        msg = "📅 **Upcoming Anime:**\n\n"
+        for i, title in enumerate(upcoming_list, 1):
+            msg += f"{i}. {title}\n"
+        
+        await status_msg.edit_text(msg, parse_mode="MARKDOWN")
+    except Exception as e:
+        await status_msg.edit_text(f"❌ Error fetching upcoming anime: {str(e)}")
+
+async def site_search(message: types.Message, site: str):
+    """Search anime on specific sites"""
+    search_str = extract_arg(message)
+    
+    if not search_str:
+        await message.reply(f"❌ Please provide an anime name!\nUsage: /{site} <anime name>")
+        return
+    
+    status_msg = await message.reply(f"🔍 Searching on {site}...")
+    
+    if site == "kaizoku":
+        search_url = f"https://animekaizoku.com/?s={search_str.replace(' ', '+')}"
     elif site == "kayo":
-        search_url = f"https://animekayo.com/?s={search_query}"
-        html_text = requests.get(search_url).text
-        soup = bs4.BeautifulSoup(html_text, "html.parser")
-        search_result = soup.find_all("h2", {"class": "title"})
-
-        result = f"<b>Search results for</b> <code>{html.escape(search_query)}</code> <b>on</b> @KayoAnime: \n"
-        for entry in search_result:
-
-            if entry.text.strip() == "Nothing Found":
-                result = f"<b>No result found for</b> <code>{html.escape(search_query)}</code> <b>on</b> @KayoAnime"
-                more_results = False
-                break
-
-            post_link = entry.a["href"]
-            post_name = html.escape(entry.text.strip())
-            result += f"• <a href='{post_link}'>{post_name}</a>\n"
-
-    buttons = [[InlineKeyboardButton("See all results", url=search_url)]]
-
-    if more_results:
-        message.reply_text(
-            result,
-            parse_mode=ParseMode.HTML,
-            reply_markup=InlineKeyboardMarkup(buttons),
-            disable_web_page_preview=True,
-        )
+        search_url = f"https://animekayo.com/?s={search_str.replace(' ', '+')}"
     else:
-        message.reply_text(
-            result, parse_mode=ParseMode.HTML, disable_web_page_preview=True,
+        return
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(search_url, timeout=10) as resp:
+                html_text = await resp.text()
+        
+        soup = BeautifulSoup(html_text, "html.parser")
+        
+        if site == "kaizoku":
+            results = soup.find_all("h2", {"class": "post-title"})
+        else:  # kayo
+            results = soup.find_all("h2", {"class": "title"})
+        
+        if not results or (len(results) == 1 and "Nothing Found" in results[0].text):
+            await status_msg.edit_text(
+                f"❌ No results found for '{search_str}' on {site}"
+            )
+            return
+        
+        msg = f"📦 **Results on {site}:**\n\n"
+        count = 0
+        for result in results:
+            if count >= 10:
+                break
+            
+            if site == "kaizoku":
+                link = "https://animekaizoku.com/" + result.a["href"]
+                title = result.text.strip()
+            else:  # kayo
+                if result.text.strip() == "Nothing Found":
+                    continue
+                link = result.a["href"]
+                title = result.text.strip()
+            
+            msg += f"• [{title}]({link})\n"
+            count += 1
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔍 View All Results", url=search_url)]
+        ])
+        
+        await status_msg.edit_text(
+            msg,
+            parse_mode="MARKDOWN",
+            reply_markup=keyboard,
+            disable_web_page_preview=True
         )
+        
+    except Exception as e:
+        await status_msg.edit_text(f"❌ Error searching: {str(e)}")
 
+@router.message(Command("kaizoku"))
+async def kaizoku_command(message: types.Message):
+    """Search on Kaizoku"""
+    await site_search(message, "kaizoku")
 
-@run_async
-def kaizoku(update: Update, context: CallbackContext):
-    site_search(update, context, "kaizoku")
+@router.message(Command("kayo"))
+async def kayo_command(message: types.Message):
+    """Search on Kayo"""
+    await site_search(message, "kayo")
 
+# Help text
+HELP_TEXT = """
+🎬 <b>Anime Module Commands:</b>
 
-@run_async
-def kayo(update: Update, context: CallbackContext):
-    site_search(update, context, "kayo")
+• /anime &lt;name&gt; - Get anime information
+• /manga &lt;name&gt; - Get manga information
+• /character &lt;name&gt; - Get character information
+• /user &lt;username&gt; - Get MyAnimeList user info
+• /upcoming - List upcoming anime
+• /airing &lt;anime&gt; - Get airing information
+• /kaizoku &lt;anime&gt; - Search on Kaizoku
+• /kayo &lt;anime&gt; - Search on Kayo
 
+<i>Powered by AniList and MyAnimeList</i>
+"""
 
-__help__ = """
-Get information about anime, manga or characters from [AniList](anilist.co).
+@router.message(Command("anime_help"))
+async def anime_help_command(message: types.Message):
+    """Show anime module help"""
+    await message.reply(HELP_TEXT, parse_mode="HTML")
 
-*Available commands:*
-
- • `/anime <anime>`*:* returns information about the anime.
- • `/character <character>`*:* returns information about the character.
- • `/manga <manga>`*:* returns information about the manga.
- • `/user <user>`*:* returns information about a MyAnimeList user.
- • `/upcoming`*:* returns a list of new anime in the upcoming seasons.
- • `/kaizoku <anime>`*:* search an anime on animekaizoku.com
- • `/kayo <anime>`*:* search an anime on animekayo.com
- • `/airing <anime>`*:* returns anime airing info.
-
- """
-
-ANIME_HANDLER = DisableAbleCommandHandler("anime", anime)
-AIRING_HANDLER = DisableAbleCommandHandler("airing", airing)
-CHARACTER_HANDLER = DisableAbleCommandHandler("character", character)
-MANGA_HANDLER = DisableAbleCommandHandler("manga", manga)
-USER_HANDLER = DisableAbleCommandHandler("user", user)
-UPCOMING_HANDLER = DisableAbleCommandHandler("upcoming", upcoming)
-KAIZOKU_SEARCH_HANDLER = DisableAbleCommandHandler("kaizoku", kaizoku)
-KAYO_SEARCH_HANDLER = DisableAbleCommandHandler("kayo", kayo)
-
-dispatcher.add_handler(ANIME_HANDLER)
-dispatcher.add_handler(CHARACTER_HANDLER)
-dispatcher.add_handler(MANGA_HANDLER)
-dispatcher.add_handler(AIRING_HANDLER)
-dispatcher.add_handler(USER_HANDLER)
-dispatcher.add_handler(KAIZOKU_SEARCH_HANDLER)
-dispatcher.add_handler(KAYO_SEARCH_HANDLER)
-dispatcher.add_handler(UPCOMING_HANDLER)
-
-__mod_name__ = "Anime"
-__command_list__ = [
-    "anime",
-    "manga",
-    "character",
-    "user",
-    "upcoming",
-    "kaizoku",
-    "airing",
-    "kayo",
+# Module metadata (similar to uptime.py)
+__module_name__ = "Anime"
+__module_description__ = "Get information about anime, manga and characters from AniList"
+__commands__ = [
+    "/anime - Get anime information",
+    "/manga - Get manga information", 
+    "/character - Get character information",
+    "/user - Get MyAnimeList user information",
+    "/upcoming - List upcoming anime",
+    "/airing - Get anime airing info",
+    "/kaizoku - Search on Kaizoku",
+    "/kayo - Search on Kayo",
+    "/anime_help - Show this help message"
 ]
 __handlers__ = [
-    ANIME_HANDLER,
-    CHARACTER_HANDLER,
-    MANGA_HANDLER,
-    USER_HANDLER,
-    UPCOMING_HANDLER,
-    KAIZOKU_SEARCH_HANDLER,
-    KAYO_SEARCH_HANDLER,
-    AIRING_HANDLER,
+    "airing_command",
+    "anime_command", 
+    "character_command",
+    "manga_command",
+    "user_command",
+    "upcoming_command",
+    "kaizoku_command",
+    "kayo_command",
+    "anime_help_command"
 ]
